@@ -1,6 +1,6 @@
 source "http://rubygems.org"
 
-gem 'aws-s3'
+gem 's3'
 gem 'environs'
 
 group :development do

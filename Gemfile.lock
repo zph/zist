@@ -1,13 +1,8 @@
 GEM
   remote: http://rubygems.org/
   specs:
-    aws-s3 (0.6.3)
-      builder
-      mime-types
-      xml-simple
     binding_of_caller (0.7.2)
       debug_inspector (>= 0.0.1)
-    builder (3.2.2)
     byebug (2.7.0)
       columnize (~> 0.3)
       debugger-linecache (~> 1.2)
@@ -28,6 +23,7 @@ GEM
     method_source (0.8.2)
     mime-types (1.25.1)
     posix-spawn (0.3.9)
+    proxies (0.2.1)
     pry (0.9.12.6)
       coderay (~> 1.0)
       method_source (~> 0.8)
@@ -65,16 +61,17 @@ GEM
       repl_rake
     rake (0.9.6)
     repl_rake (0.1.0)
+    s3 (0.3.21)
+      proxies (~> 0.2.0)
     slop (3.6.0)
     unicode_utils (1.4.0)
-    xml-simple (1.1.4)
     yard (0.8.7.6)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
-  aws-s3
   environs
   pry-uber
   rake (~> 0.9)
+  s3
