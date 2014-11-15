@@ -85,7 +85,7 @@ class Zist
 
     remote_filepath = File.join(Env.amazon_bucket_url, filename)
     log.info('zist:upload'){ "Pushing #{filename} to #{bucket_name}" }
-    # AWS::S3::S3Object.store( filename, file_handle, bucket_name)
+    AWS::S3::S3Object.store( filename, file_handle, bucket_name) unless $DEBUG
     log.info('zist:upload'){ "#{remote_filepath}" }
   end
 
