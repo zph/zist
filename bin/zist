@@ -1,0 +1,112 @@
+#!/usr/bin/env ruby
+
+require 'open3'
+require 'yaml'
+require 'environs'
+require 'logger'
+require 'aws/s3'
+
+# We depend on S3, which uses OpenSSL in a way that's deprecated.
+# S3 uses OpenSSL::Digest::Digest and the new preferred method is
+# OpenSSL::Digest.
+#
+# Setup kernel method for temporarily silencing warnings
+module Kernel
+  # Credit: http://mislav.uniqpath.com/2011/06/ruby-verbose-mode/
+  def silence_warnings
+    with_warnings(nil) { yield }
+  end
+
+  def with_warnings(flag)
+    old_verbose, $VERBOSE = $VERBOSE, flag
+    yield
+  ensure
+    $VERBOSE = old_verbose
+  end
+end unless Kernel.respond_to? :silence_warnings
+
+# Patch below aliases the appropriate class to new name.
+# This is patched upstream but not available in our dependencies.
+# So we'll do this for now: ¯\_(ツ)_/¯
+silence_warnings do
+  OpenSSL::Digest::Digest = OpenSSL::Digest
+end
+
+class Zist
+  attr_accessor :filename, :filepath, :bucket, :bucket_name, :local_modified, :log
+
+  def initialize(filename, dir)
+    @log            = setup_logger(STDOUT)
+    setup_s3_connection
+    @filename       = filename
+    @filepath       = expand_filepath(dir, filename)
+    @bucket_name    = Env.AMAZON_BLOG_BUCKET
+    @bucket         = AWS::S3::Bucket.find bucket_name
+    @local_modified = Time.at(File.stat(filepath).mtime).to_datetime
+  end
+
+  def expand_filepath(dir, filename)
+    begin
+      path = File.join(dir, filename)
+      case
+      when File.exists?(filename) # absolute path not contingent on CWD of cmd
+        File.expand_path(filename)
+      when File.exists?(path)
+        File.expand_path(path)
+      else
+        raise(ArgumentError)
+      end
+    rescue
+      log.info('zist:expand_filepath'){ "File path can't be determined." }
+      exit(2)
+    end
+
+  end
+  def setup_logger(io = STDOUT)
+    log = Logger.new(io)
+    log.level = Logger::INFO
+    log
+  end
+
+  def s3_copy_is_newer?
+    existing = bucket[filename]
+    remote_timestamp = if existing
+                         DateTime.parse( existing.about['last-modified'] )
+                       else
+                         DateTime.new(1066, 01, 01)
+                       end
+    (existing && local_modified < remote_timestamp)
+  end
+
+  def upload
+    log.info('zist:upload'){ "Bucket: #{bucket_name}" }
+    # compare atime for each file, only sync changes
+    exit(42) if s3_copy_is_newer?
+
+    remote_filepath = File.join(Env.amazon_bucket_url, filename)
+    log.info('zist:upload'){ "Pushing #{filename} to #{bucket_name}" }
+    # AWS::S3::S3Object.store( filename, file_handle, bucket_name)
+    log.info('zist:upload'){ "#{remote_filepath}" }
+  end
+
+  def setup_s3_connection
+    begin
+      aws = AWS::S3::Base
+      aws.establish_connection!(access_key_id:     Env.amazon_key_id,
+                                secret_access_key: Env.amazon_secret_key)
+    rescue
+      log.fatal('zist:setup_s3'){ "AWS Credentials missing or Invalid" }
+      exit(1)
+    end
+  end
+end
+
+def main(args, io = STDOUT)
+  file = args.first
+  start_dir = args[1] || Dir.pwd
+  exit(42) unless file
+  zist = Zist.new(file, start_dir)
+  zist.upload
+end
+
+main(ARGV.dup)
