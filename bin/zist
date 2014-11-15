@@ -6,6 +6,7 @@ require 'environs'
 require 'logger'
 require 's3'
 require 'open-uri'
+require 'mime/types'
 
 class Zist
   attr_accessor :filename, :filepath, :bucket, :bucket_name, :local_modified, :log, :file_basename
@@ -46,7 +47,12 @@ class Zist
   end
 
   def s3_copy_is_newer?
-    existing = bucket.objects.find(filename)
+    begin
+      existing = bucket.objects.find(filename)
+    rescue S3::Error::ResponseError
+      existing = false
+    end
+
     remote_timestamp = if existing
                          existing.last_modified.to_datetime
                        else
@@ -65,6 +71,8 @@ class Zist
     unless $DEBUG
       object = bucket.objects.build(file_basename)
       object.content = open(filepath)
+      mime = MIME::Types.of(file_basename).first.simplified
+      object.content_type = mime
       object.save
     end
     log.info('zist:upload'){ "#{remote_filepath}" }
