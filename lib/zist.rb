@@ -28,7 +28,7 @@ class Zist
     remote_filepath = File.join(Env.amazon_bucket_url, file_basename)
     log.info('zist:upload'){ "Pushing #{filepath} -> #{bucket_name}/#{file_basename}" }
     save_file!
-    log.info('zist:upload'){ "#{remote_filepath}" }
+    log.info('zist:upload'){ "#{remote_filepath.gsub(/http:/, 'https:')}" }
   end
 
   def expand_filepath(dir, filename, basename)
